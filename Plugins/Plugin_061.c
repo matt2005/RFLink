@@ -26,7 +26,13 @@
  
  * 20;9A;DEBUG;Pulses=50;Pulses(uSec)=475,925,400,950,1150,175,400,950,375,950,1125,200,1100,225,1100,250,1075,250,1075,275,1050,275,1050,275,1050,275,1050,275,275,1050,1050,275,300,1050,1050,275,300,1050,300,1050,1050,275,300,1050,275,1050,1050,275,275;
  * 010110010110101010101010101001100110010110010110
+ * 00100111 1111110101001001  27 FD49
  * 11011000 0000001010110110  D8 02B6
+
+ * 1975,275,900,250,225,975,250,975,250,975,225,975,900,250,900,250,900,250,250,950,225,975,900,250,225,950,225,975,250,950,225,975,900,250,900,250,900,250,250,950,900,250,250,950,225,950,925,250,250;
+ * 101001010101101010010110010101011010100110010110
+ * 001111000110111100010110 3C6F16
+ * 110000111001000011101001 c390E9
  \*********************************************************************************************/
 #define ALARMPIRV1_PULSECOUNT 50
 
@@ -37,6 +43,7 @@
 #ifdef PLUGIN_061
 boolean Plugin_061(byte function, char *string) {
       if (RawSignal.Number != ALARMPIRV1_PULSECOUNT) return false;
+      if (RawSignal.Pulses[0]==63) return false;    // No need to test, packet for plugin 63
       unsigned long bitstream=0L;
       unsigned long bitstream2=0L;
       //==================================================================================
@@ -44,11 +51,11 @@ boolean Plugin_061(byte function, char *string) {
         if (RawSignal.Pulses[x] > ALARMPIRV1_PULSEMID) {
            if (RawSignal.Pulses[x] > ALARMPIRV1_PULSEMAX) return false;   // pulse too long
            if (RawSignal.Pulses[x-1] > ALARMPIRV1_PULSEMID) return false; // invalid pulse sequence 10/01
-           bitstream = (bitstream << 1) | 0x1; 
+           bitstream = bitstream << 1;
         } else { 
            if (RawSignal.Pulses[x] < ALARMPIRV1_PULSEMIN) return false;   // pulse too short
            if (RawSignal.Pulses[x-1] < ALARMPIRV1_PULSEMID) return false; // invalid pulse sequence 10/01
-           bitstream = bitstream << 1;
+           bitstream = (bitstream << 1) | 0x1; 
         }
       }
       //==================================================================================
@@ -73,10 +80,9 @@ boolean Plugin_061(byte function, char *string) {
       Serial.print( pbuffer );
       // ----------------------------------
       Serial.print(F("X10;"));                         // Label
-      sprintf(pbuffer, "ID=%04x;", (bitstream)&0xffff);  // ID    
+      sprintf(pbuffer, "ID=%06lx;",(bitstream)&0xffffff) ; // ID    
       Serial.print( pbuffer );
-      sprintf(pbuffer, "SWITCH=%02x;", (bitstream2)&0xff);  // ID    
-      Serial.print( pbuffer );
+      Serial.print(F("SWITCH=01;"));
       Serial.print(F("CMD=ON;"));                      // this device reports movement only
       Serial.println();
       //==================================================================================

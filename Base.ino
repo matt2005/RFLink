@@ -1,14 +1,15 @@
-#define BUILDNR                          000                                    // shown in version
+#define BUILDNR                         0x07                                    // shown in version
+#define REVNR                           0x33                                    // shown in version and startup string
 #define MIN_RAW_PULSES                    20                                    // =8 bits. Minimal number of bits*2 that need to have been received before we spend CPU time on decoding the signal.
 #define RAWSIGNAL_SAMPLE_RATE             30                                    // Sample width / resolution in uSec for raw RF pulses.
-#define MIN_PULSE_LENGTH                  40                                    // Pulses shorter than this value in uSec. will be seen as garbage and not taken as actual pulses.
+#define MIN_PULSE_LENGTH                  25                                    // Pulses shorter than this value in uSec. will be seen as garbage and not taken as actual pulses.
 #define SIGNAL_TIMEOUT                     7                                    // Timeout, after this time in mSec. the RF signal will be considered to have stopped.
 #define SIGNAL_REPEAT_TIME               500                                    // Time in mSec. in which the same RF signal should not be accepted again. Filters out retransmits.
 #define BAUD                           57600                                    // Baudrate for serial communication.
 #define TRANSMITTER_STABLE_DELAY         500                                    // delay to let the transmitter become stable (Note: Aurel RTX MID needs 500µS/0,5ms).
 #define RAW_BUFFER_SIZE                  512                                    // Maximum number of pulses that is received in one go.
-#define PLUGIN_MAX                        41                                    // Maximum number of Receive plugins
-#define PLUGIN_TX_MAX                     20                                    // Maximum number of Transmit plugins
+#define PLUGIN_MAX                        55                                    // Maximum number of Receive plugins
+#define PLUGIN_TX_MAX                     26                                    // Maximum number of Transmit plugins
 #define SCAN_HIGH_TIME                    50                                    // tijdsinterval in ms. voor achtergrondtaken snelle verwerking
 #define FOCUS_TIME                        50                                    // Duration in mSec. that, after receiving serial data from USB only the serial port is checked. 
 #define INPUT_COMMAND_SIZE                60                                    // Maximum number of characters that a command via serial can be.
@@ -21,9 +22,17 @@
 #define CONFIG_FILE Config_01.c
 #include CONFIGFILE(SKETCH_PATH,CONFIG_FILE)
 
+#define VALUE_PAIR                      44
 #define VALUE_ALLOFF                    55
 #define VALUE_OFF                       74
 #define VALUE_ON                        75
+#define VALUE_DIM                       76
+#define VALUE_BRIGHT                    77
+#define VALUE_UP                        78
+#define VALUE_DOWN                      79
+#define VALUE_STOP                      80
+#define VALUE_CONFIRM                   81
+#define VALUE_LIMIT                     82
 #define VALUE_ALLON                     141
 
 // PIN Definition 
@@ -43,7 +52,7 @@ void(*Reboot)(void)=0;                                                          
 byte PKSequenceNumber=0;                                                        // 1 byte packet counter
 boolean RFDebug=false;                                                          // debug RF signals with plugin 001 
 boolean RFUDebug=false;                                                         // debug RF signals with plugin 254 
-boolean QRFDebug=false;                                                        // debug RF signals with plugin 254 but no multiplication
+boolean QRFDebug=false;                                                         // debug RF signals with plugin 254 but no multiplication
 
 uint8_t RFbit,RFport;                                                           // for processing RF signals.
 
@@ -60,6 +69,7 @@ byte PluginTX_id[PLUGIN_TX_MAX];
 
 void PrintHex8(uint8_t *data, uint8_t length);                                  // prototype
 void PrintHexByte(uint8_t data);                                                // prototype
+byte reverseBits(byte data);                                                    // prototype
 void RFLinkHW( void );                                                          // prototype
 
 struct RawSignalStruct                                                          // Raw signal variabelen places in a struct
@@ -92,7 +102,10 @@ void setup() {
 
   RFbit=digitalPinToBitMask(PIN_RF_RX_DATA);
   RFport=digitalPinToPort(PIN_RF_RX_DATA);
-  Serial.println(F("20;00;Nodo RadioFrequencyLink V1.1;"));
+  Serial.print(F("20;00;Nodo RadioFrequencyLink - RFLink Gateway V1.1 - "));
+  sprintf(InputBuffer_Serial,"R%02x;",REVNR);
+  Serial.println(InputBuffer_Serial); 
+
   PKSequenceNumber++;
   PluginInit();
   PluginTXInit();
@@ -175,7 +188,7 @@ void loop() {
                      Serial.println(InputBuffer_Serial); 
                   } else                 
                   if (strncasecmp(InputBuffer_Serial+3,"VERSION",7) == 0) {
-                      sprintf(InputBuffer_Serial,"20;%02X;VER=1.1;REV=28;BUILD=%03d;",PKSequenceNumber++,BUILDNR);
+                      sprintf(InputBuffer_Serial,"20;%02X;VER=1.1;REV=%02x;BUILD=%02x;",PKSequenceNumber++,REVNR, BUILDNR);
                       Serial.println(InputBuffer_Serial); 
                   } else {
                      // -------------------------------------------------------

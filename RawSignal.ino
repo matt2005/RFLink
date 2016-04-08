@@ -34,7 +34,6 @@ uint8_t Fport=0;
 uint8_t FstateMask=0;
 /*********************************************************************************************/
 boolean FetchSignal(byte DataPin, boolean StateSignal) {
-   unsigned long LastPulse;
    uint8_t Fbit = digitalPinToBitMask(DataPin);
    uint8_t Fport = digitalPinToPort(DataPin);
    uint8_t FstateMask = (StateSignal ? Fbit : 0);
@@ -58,10 +57,9 @@ boolean FetchSignal(byte DataPin, boolean StateSignal) {
      maxloops = (SIGNAL_TIMEOUT * LoopsPerMilli);  
      do{                                                                         // read the pulses in microseconds and place them in temporary buffer RawSignal
        numloops = 0;
-       LastPulse = micros();
        while (((*portInputRegister(Fport) & Fbit) == FstateMask) ^ Ftoggle)      // while() loop *A*
-           if (numloops++ == maxloops) break;                                    // timeout 
-       PulseLength = micros() - LastPulse;                                       // Contains pulslength in microseconds
+       if (numloops++ == maxloops) break;                                        // timeout 
+       PulseLength=((numloops + Overhead)* 1000) / LoopsPerMilli;                // Contains pulslength in microseconds
        if (PulseLength<MIN_PULSE_LENGTH) break;                                  // Pulse length too short
        Ftoggle=!Ftoggle;    
        RawSignal.Pulses[RawCodeLength++]=PulseLength/(unsigned long)(RAWSIGNAL_SAMPLE_RATE); // store in RawSignal !!!! 
@@ -89,18 +87,15 @@ void RFLinkHW( void ) {
      return;
 }
 /*********************************************************************************************\
- * Send rawsignal buffer to RF
+ * Send rawsignal buffer to RF  * DEPRICATED * DO NOT USE *
 \*********************************************************************************************/
-void RawSendRF(void) {
+void RawSendRF(void) {                                                    // * DEPRICATED * DO NOT USE *
   int x;
   digitalWrite(PIN_RF_RX_VCC,LOW);                                        // Spanning naar de RF ontvanger uit om interferentie met de zender te voorkomen.
   digitalWrite(PIN_RF_TX_VCC,HIGH);                                       // zet de 433Mhz zender aan
   delayMicroseconds(TRANSMITTER_STABLE_DELAY);                            // short delay to let the transmitter become stable (Note: Aurel RTX MID needs 500µS/0,5ms)
-  
-  // LET OP: In de Arduino versie 1.0.1 zit een bug in de funktie delayMicroSeconds(). Als deze wordt aangeroepen met een nul dan zal er
-  // een pause optreden van 16 milliseconden. Omdat het laatste element van RawSignal af sluit met een nul (omdat de space van de stopbit 
-  // feitelijk niet bestaat) zal deze bug optreden. Daarom wordt deze op 1 gezet om de bug te omzeilen. 
-  RawSignal.Pulses[RawSignal.Number]=1;
+
+  RawSignal.Pulses[RawSignal.Number]=1;                                   // due to a bug in Arduino 1.0.1
 
   for(byte y=0; y<RawSignal.Repeats; y++) {                               // herhaal verzenden RF code
      x=1;
